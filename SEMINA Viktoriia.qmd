@@ -1,0 +1,218 @@
+---
+title: "Individual Project"
+author: "Victoria Semina"
+format: html
+editor: visual
+---
+
+Here you can find the github link:
+
+https://github.com/seminavictoria/galatic
+
+```{r}
+#| message: false
+here::i_am("galatic.Rproj")
+library(here)
+library(vroom)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library (stringr)
+```
+
+Question 3
+
+```{r}
+planets <- vroom("the+planets.csv")
+num_planets <- nrow(planets)
+num_variables <- ncol(planets)
+
+cat("Number of planets:", num_planets, "\n")
+cat("Number of variables:", num_variables, "\n")
+
+
+head(planets)
+
+# Check if the variables are numeric
+
+numeric_columns <- c("PLANET_NUMBER", "Star_code", "mass (earth)", "density (earth)", "RELATIVE RADIUS")
+
+numeric_verification <- sapply(planets[, numeric_columns, drop = FALSE], is.numeric)
+
+if (num_planets == 736 && num_variables == 8 && all(numeric_verification)) {
+  cat("All good, let's go to the next question\n")
+} else {
+  cat("Smth is wring.\n")
+}
+
+```
+
+Question 4
+
+```{r}
+missing_values <- colSums(is.na(planets))
+sum_missing_values <- sum(missing_values)
+
+num_observations_with_missing <- sum(apply(planets, 1, anyNA))
+
+summary_table <- data.frame(
+  Metric = c("Number of Observations", "Number of Variables", "Number of Missing Values", "Number of Observations with Missing Values"),
+  Value = c(num_planets, num_variables, sum(missing_values), num_observations_with_missing)
+)
+
+cat("| Metric | Value |\n")
+cat("|--------|-------|\n")
+cat(sprintf("| Number of Observations | %d |\n", num_planets))
+cat(sprintf("| Number of Variables | %d |\n", num_variables))
+cat(sprintf("| Number of Missing Values | %d |\n", sum_missing_values))
+cat(sprintf("| Number of Observations with Missing Values | %d |\n", num_observations_with_missing))
+```
+
+So, we have a situation where number of planets is \`r num_planets\` and the number of variables which we can observe is \`r num_variables\`. However, there are \`r sum_missing_values\` missing values in the table in \`r num_observations_with_missing\` lines.
+
+Question 5
+
+```{r}
+
+planets_filtered <- planets %>%
+  filter(!is.na(`mass (earth)`) & !is.na(`density (earth)`))
+
+planets_filtered$mass_earth <- as.numeric(planets_filtered$`mass (earth)`)
+planets_filtered$density_earth <- as.numeric(planets_filtered$`density (earth)`)
+
+ggplot(planets_filtered, aes(x = mass_earth, y = density_earth)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "pink") +  
+  labs(title = "Density as a function of the mass of planets",
+       x = "Planet's mass",
+       y = "Planet's density")
+```
+
+Question 6
+
+```{r}
+planets_full_filtered <- planets %>%
+  filter(!is.na(`mass (earth)`) & !is.na(`density (earth)`) & !is.na(`RELATIVE RADIUS`))
+
+extreme_planets <- planets_full_filtered %>%
+  summarise(
+    densest_planet = p_name[which.max(`density (earth)`)],
+    least_dense_planet = p_name[which.min(`density (earth)`)],
+    largest_planet = p_name[which.max(`RELATIVE RADIUS`)],
+    smallest_planet = p_name[which.min(`RELATIVE RADIUS`)],
+    heaviest_planet = p_name[which.max(`mass (earth)`)],
+    lightest_planet = p_name[which.min(`mass (earth)`)]
+  )
+
+extreme_planets
+```
+
+Question 7
+
+```{r}
+
+terrain_data <- planets %>%
+  mutate(terrain_type = str_split(`TERRAIN TYPE`, pattern = "; ")) %>%
+  select(PLANET_NUMBER, terrain_type) %>%
+  unnest(terrain_type)
+
+# Extract climate types
+climate_data <- planets %>%
+  mutate(climate_type = str_split(climate, pattern = "; ")) %>%
+  select(PLANET_NUMBER, climate_type) %>%
+  unnest(climate_type)
+
+```
+
+Question 8
+
+```{r}
+climate_counts <- climate_data %>%
+  group_by(PLANET_NUMBER) %>%
+  summarise(num_climates = n_distinct(climate_type))
+
+ggplot(climate_counts, aes(x = num_climates)) +
+  geom_bar(stat = "count", fill = "pink", color = "maroon") +
+  labs(title = "Number of climates per planet",
+       x = "Number of climates",
+       y = "Planets")
+
+
+terrain_data <- planets %>%
+  mutate(terrain_type = str_split(`TERRAIN TYPE`, pattern = "; ")) %>%
+  select(PLANET_NUMBER, terrain_type) %>%
+  unnest(terrain_type)
+
+terrain_counts <- terrain_data %>%
+  group_by(PLANET_NUMBER) %>%
+  summarise(num_terrains = n_distinct(terrain_type))
+
+ggplot(terrain_counts, aes(x = num_terrains)) +
+  geom_bar(stat = "count", fill = "pink", color = "maroon") +
+  labs(title = "Number of terrain types per planet",
+       x = "Number of terrain types",
+       y = "Planetss")
+```
+
+Question 9
+
+```{r}
+climate_data <- planets %>%
+  mutate(climate_type = str_split(climate, pattern = "; ")) %>%
+  select(PLANET_NUMBER, climate_type, `RELATIVE RADIUS`) %>%
+  unnest(climate_type)
+
+ggplot(climate_data, aes(x = climate_type, y = `RELATIVE RADIUS`)) +
+  geom_jitter(alpha = 0.5, color = "pink", width = 0.2) +
+  stat_summary(fun = mean, geom = "point", color = "maroon", size = 2, 
+               position = position_nudge(x = 0), show.legend = FALSE) +
+  labs(title = "Distribution of planets' radius by the climate type",
+       x = "Climae type",
+       y = "Radius of the planet")
+```
+
+Question 10
+
+```{r}
+stars <- vroom("Starlist.csv")
+```
+
+Question 11
+
+```{r}
+inconsistent_planets <- planets %>%
+  filter(!(Star_code %in% stars$Star_code))
+
+cat("Planets with inconsistent Star_code:\n")
+cat(inconsistent_planets$p_name, sep = "\n")
+cat("\n")
+
+stars_without_planets <- stars %>%
+  filter(!(Star_code %in% planets$Star_code))
+
+cat("Number of stars with no associated planet: ", nrow(stars_without_planets), "\n")
+
+```
+
+Question 12
+
+```{r}
+stars <- stars %>%
+  separate("type of star", into = c("class of the star", "magnitude", "luminosity_class"), sep = "|")
+
+head(stars)
+```
+
+Question 17
+
+```{r}
+planets_per_star <- planets %>%
+  group_by(Star_code) %>%
+  summarise(num_planets = n())
+
+ggplot(planets_per_star, aes(x = num_planets)) +
+  geom_bar(stat = "count", fill = "pink", color = "maroon") +
+  labs(title = "Distribution of the number og planets per star",
+       x = "Number of planets",
+       y = "Stars")
+```
